@@ -1,6 +1,6 @@
+import { Types } from "mongoose";
 import { connect } from "@/lib/db";
 import User from "@/lib/modals/users";
-import { Types } from "mongoose";
 import { NextResponse } from "next/server";
 
 const ObjectId = require("mongoose").Types.ObjectId;
@@ -46,16 +46,17 @@ export const POST = async (request: Request) => {
 export const PATCH = async (request: Request) => {
   try {
     const body = await request.json();
+    //Body of request should contain userId and newUsername
     const { userId, newUsername } = body;
 
     await connect();
 
     if (!userId || !newUsername) {
-      return new NextResponse(
-        JSON.stringify({ message: "ID or new username not found." }),
-        { status: 400 }
-      );
+      return new NextResponse(JSON.stringify({ message: "User not found." }), {
+        status: 400,
+      });
     }
+    //Used to validate whether userId is a valid MongoDB ObjectId.
     if (!Types.ObjectId.isValid(userId)) {
       return new NextResponse(JSON.stringify({ message: "Invalid userId." }), {
         status: 400,
@@ -63,9 +64,9 @@ export const PATCH = async (request: Request) => {
     }
 
     const updatedUser = await User.findOneAndUpdate(
-      { _id: new ObjectId(userId) },
-      { username: newUsername },
-      { new: true }
+      { _id: new ObjectId(userId) }, // Looks for the user with the given userId.
+      { username: newUsername }, //Updates the username field with the new vaule.
+      { new: true } //Makes the function return the updated document(user).
     );
 
     if (!updatedUser) {
@@ -76,7 +77,45 @@ export const PATCH = async (request: Request) => {
     }
     return new NextResponse(
       JSON.stringify({ message: "User is updated.", user: updatedUser }),
-      { status: 400 }
+      { status: 200 }
+    );
+  } catch (err: any) {
+    return new NextResponse("Error in updating user." + err.message, {
+      status: 500,
+    });
+  }
+};
+
+export const DELETE = async (request: Request) => {
+  try {
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("userId");
+    if (!userId) {
+      return new NextResponse(JSON.stringify({ message: "User not found." }), {
+        status: 400,
+      });
+    }
+    if (!Types.ObjectId.isValid(userId)) {
+      return new NextResponse(JSON.stringify({ message: "Invalid userId." }), {
+        status: 400,
+      });
+    }
+    await connect();
+
+    const deletedUser = await User.findByIdAndDelete(
+      new Types.ObjectId(userId)
+    );
+
+    if (!deletedUser) {
+      return new NextResponse(JSON.stringify({ message: "User not found." }), {
+        status: 400,
+      });
+    }
+    return new NextResponse(
+      JSON.stringify({ message: "User id Deleted.", user: deletedUser }),
+      {
+        status: 200,
+      }
     );
   } catch (err: any) {
     return new NextResponse("Error in updating user." + err.message, {
